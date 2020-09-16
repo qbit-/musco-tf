@@ -1,7 +1,10 @@
 import os
 import gc
 import tensorflow as tf
-import tensorflow.contrib.tensorrt as trt
+if tf.__version__.startswith('2.'):
+    import tensorflow.experimental.tensorrt as trt
+else:
+    import tensorflow.contrib.tensorrt as trt
 from tensorflow.python.framework import graph_io
 
 
