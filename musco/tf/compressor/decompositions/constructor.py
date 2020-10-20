@@ -1,6 +1,5 @@
 import tensorflow as tf
 from tensorflow import keras
-import keras as K
 
 
 def check_layer_type(layer, accepted_layers):
@@ -8,7 +7,7 @@ def check_layer_type(layer, accepted_layers):
 
 
 def check_data_format(layer):
-    if isinstance(layer, keras.Sequential) or isinstance(layer, K.Sequential):
+    if isinstance(layer, keras.Sequential):
         return any(layer.data_format != "channel_last" for layer in layer.layers)
     else:
         return layer.data_format != "channel_last"

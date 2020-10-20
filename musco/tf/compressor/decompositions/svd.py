@@ -2,8 +2,10 @@
 
 import numpy as np
 from musco.tf.compressor.decompositions.constructor import construct_compressor
+import tensorflow as tf
 from tensorflow import keras
 from musco.tf.compressor.common.utils import del_keys
+from musco.tf.compressor import layers as musco_layers
 
 
 def get_params(layer):
@@ -19,7 +21,6 @@ def get_params(layer):
     params["weights_shape"] = weights_shape
 
     return params
-
 
 def get_truncated_svd(weights, rank):
     u, s, v_adj = np.linalg.svd(weights, full_matrices=False)
@@ -73,3 +74,19 @@ def get_config(layer, copy_conf):
 
 get_svd_seq = construct_compressor(get_params, None, get_svd_factors, get_layers_params_for_factors, get_config,
                                    (keras.layers.Dense, keras.Sequential))
+
+def get_svd_new_layer(layer, rank=2):
+    
+    if isinstance(layer, keras.layers.RNN):
+        layer = layer.cell
+        
+    if isinstance(layer, keras.layers.LSTM)\
+        or isinstance(layer, tf.python.keras.layers.recurrent.LSTMCell)\
+        or isinstance(layer, keras.layers.LSTMCell):
+        cell = musco_layers.decomp_recurrent_cell.FusedSVDLSTMCell(
+            units=layer.units,
+            parent_layer=layer
+        )
+        new_layer = keras.layers.RNN(cell)
+        
+    return new_layer

@@ -10,7 +10,10 @@ except ImportError:
 
 def load_requirements(file_name):
     requirements = parse_requirements(file_name, session="test")
-    return [str(item.req) for item in requirements]
+    try:
+        return [str(item.req) for item in requirements]
+    except:
+        return [str(item.requirement) for item in requirements]
 
 
 setup(

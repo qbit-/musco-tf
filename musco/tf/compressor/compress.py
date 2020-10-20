@@ -7,7 +7,7 @@ from tensorflow.keras.models import Model
 from tensorflow import keras
 from musco.tf.compressor.decompositions.cp3 import get_cp3_seq
 from musco.tf.compressor.decompositions.cp4 import get_cp4_seq
-from musco.tf.compressor.decompositions.svd import get_svd_seq
+from musco.tf.compressor.decompositions.svd import get_svd_seq, get_svd_new_layer
 from musco.tf.compressor.decompositions.tucker2 import get_tucker2_seq
 from musco.tf.compressor.exceptions.compression_error import CompressionError
 from tqdm import tqdm
@@ -50,42 +50,54 @@ def compress_seq(model, decompose_info, optimize_rank=False, vbmf=True, vbmf_wea
             continue
 
         decompose, decomp_rank = decompose_info[layer.name]
-        if decompose.lower() == "svd":
-            logging.info("SVD layer {}".format(layer.name))
-            new_layer = get_svd_seq(layer, rank=decomp_rank)
-        elif decompose.lower() == "cp3":
-            logging.info("CP3 layer {}".format(layer.name))
-            new_layer = get_cp3_seq(layer,
-                                    rank=decomp_rank,
-                                    optimize_rank=optimize_rank)
-        elif decompose.lower() == "cp4":
-            logging.info("CP4 layer {}".format(layer.name))
-            new_layer = get_cp4_seq(layer,
-                                    rank=decomp_rank,
-                                    optimize_rank=optimize_rank)
-        elif decompose.lower() == "tucker2":
-            logging.info("Tucker2 layer {}".format(layer.name))
-            new_layer = get_tucker2_seq(layer,
-                                        rank=decomp_rank,
-                                        optimize_rank=optimize_rank,
-                                        vbmf=vbmf,
-                                        vbmf_weaken_factor=vbmf_weaken_factor)
-        else:
-            logging.info("Incorrect decompositions type for the layer {}".format(layer.name))
-            raise NameError(
-                "Wrong Decomposition Name. You should use one of: [\"svd\", \"cp3\", \"cp4\", \"tucker-2\"]")
-
+        
+        new_layer = get_new_layer(decompose, decomp_rank, layer, optimize_rank, vbmf, vbmf_weaken_factor)
         x = new_layer(x)
         new_model.add(new_layer)
 
     return new_model
 
+def get_new_layer(decompose, decomp_rank, layer, optimize_rank, vbmf, vbmf_weaken_factor):
+    if decompose.lower() == "svd":
+        logging.info("SVD layer {}".format(layer.name))
+        if isinstance(layer, keras.layers.TimeDistributed):
+            new_layer = get_svd_seq(layer.layer, rank=decomp_rank)
+            new_layer = keras.layers.TimeDistributed(new_layer)
+        elif isinstance(layer, keras.layers.Dense) or isinstance(layer, keras.Sequential):
+            new_layer = get_svd_seq(layer, rank=decomp_rank)
+        else:
+            new_layer = get_svd_new_layer(layer, rank=decomp_rank)
+
+    elif decompose.lower() == "cp3":
+        logging.info("CP3 layer {}".format(layer.name))
+        new_layer = get_cp3_seq(layer,
+                                rank=decomp_rank,
+                                optimize_rank=optimize_rank)
+    elif decompose.lower() == "cp4":
+        logging.info("CP4 layer {}".format(layer.name))
+        new_layer = get_cp4_seq(layer,
+                                rank=decomp_rank,
+                                optimize_rank=optimize_rank)
+    elif decompose.lower() == "tucker2":
+        logging.info("Tucker2 layer {}".format(layer.name))
+        new_layer = get_tucker2_seq(layer,
+                                    rank=decomp_rank,
+                                    optimize_rank=optimize_rank,
+                                    vbmf=vbmf,
+                                    vbmf_weaken_factor=vbmf_weaken_factor)
+    else:
+        logging.info("Incorrect decompositions type for the layer {}".format(layer.name))
+        raise NameError(
+            "Wrong Decomposition Name. You should use one of: [\"svd\", \"cp3\", \"cp4\", \"tucker-2\"]")
+    
+    return new_layer
+
 
 def insert_layer_noseq(model, layer_regexs):
     # Auxiliary dictionary to describe the network graph.
     network_dict = dict(input_layers_of={}, new_output_tensor_of={})
-    current_session = tf.keras.backend.get_session()
-
+#     current_session = tf.keras.backend.get_session()
+    current_session = tf.compat.v1.keras.backend.get_session()
     # Set the input layers of each layer.
     for layer in model.layers:
         try:
@@ -146,9 +158,12 @@ def insert_layer_noseq(model, layer_regexs):
         network_dict["new_output_tensor_of"].update({layer.name: x})
 
     # Reconstruct graph.
-    tf.reset_default_graph()
-    new_sess = tf.Session()
-    tf.keras.backend.set_session(new_sess)
+#     tf.reset_default_graph()
+    tf.compat.v1.reset_default_graph()
+#     new_sess = tf.Session()
+    new_sess = tf.compat.v1.Session()
+#     tf.keras.backend.set_session(new_sess)
+    tf.compat.v1.keras.backend.set_session(new_sess)
 
     input_constructor, input_conf, _ = conenctions[layers_order[0]]
     new_model_input = input_constructor.from_config(input_conf)
@@ -185,25 +200,7 @@ def compress_noseq(model, decompose_info, optimize_rank=False, vbmf=True, vbmf_w
 
         decompose, decomp_rank = decompose_info[layer.name]
 
-        try:
-            if decompose.lower() == "svd":
-                layer_regexs[layer.name] = get_svd_seq(layer, rank=decomp_rank)
-            elif decompose.lower() == "cp3":
-                layer_regexs[layer.name] = get_cp3_seq(layer,
-                                                       rank=decomp_rank,
-                                                       optimize_rank=optimize_rank)
-            elif decompose.lower() == "cp4":
-                layer_regexs[layer.name] = get_cp4_seq(layer,
-                                                       rank=decomp_rank,
-                                                       optimize_rank=optimize_rank)
-            elif decompose.lower() == "tucker2":
-                layer_regexs[layer.name] = get_tucker2_seq(layer,
-                                                           rank=decomp_rank,
-                                                           optimize_rank=optimize_rank,
-                                                           vbmf=vbmf,
-                                                           vbmf_weaken_factor=vbmf_weaken_factor)
-        except ValueError:
-            continue
+        new_layer = get_new_layer(decompose, decomp_rank, layer, optimize_rank, vbmf, vbmf_weaken_factor)
 
     new_model = insert_layer_noseq(new_model, layer_regexs)
 

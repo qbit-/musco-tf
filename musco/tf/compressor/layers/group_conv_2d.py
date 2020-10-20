@@ -5,7 +5,10 @@ from tensorflow.python.keras import activations
 from tensorflow.python.keras import constraints
 from tensorflow.python.keras import initializers
 from tensorflow.python.keras import regularizers
-from tensorflow.python.keras.engine import InputSpec
+if tf.__version__.startswith('2.'):
+    from tensorflow.keras.layers import InputSpec
+else:
+    from tensorflow.python.keras.engine import InputSpec
 from tensorflow.python.keras.utils import conv_utils
 from tensorflow.python.ops import nn
 
