@@ -39,7 +39,7 @@ def compress_seq(model, decompose_info, optimize_rank=False, vbmf=True, vbmf_wea
     :return: new tf.keras.Model with compressed layers
     """
 
-    x = model.input
+    x = model.input # to fix bug input->Input (on graph)
     new_model = keras.Sequential([])
 
     for idx, layer in enumerate(tqdm(model.layers)):

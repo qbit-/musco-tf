@@ -77,6 +77,7 @@ get_svd_seq = construct_compressor(get_params, None, get_svd_factors, get_layers
 
 def get_svd_new_layer(layer, rank=2):
     
+    conf = layer.get_config()
     if isinstance(layer, keras.layers.RNN):
         layer = layer.cell
         
@@ -87,6 +88,6 @@ def get_svd_new_layer(layer, rank=2):
             units=layer.units,
             parent_layer=layer
         )
-        new_layer = keras.layers.RNN(cell)
+        new_layer = keras.layers.RNN(cell, return_sequences=conf['return_sequences'])
         
     return new_layer
