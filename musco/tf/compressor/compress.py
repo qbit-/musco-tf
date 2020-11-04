@@ -96,8 +96,7 @@ def get_new_layer(decompose, decomp_rank, layer, optimize_rank, vbmf, vbmf_weake
 def insert_layer_noseq(model, layer_regexs):
     # Auxiliary dictionary to describe the network graph.
     network_dict = dict(input_layers_of={}, new_output_tensor_of={})
-#     current_session = tf.keras.backend.get_session()
-    current_session = tf.compat.v1.keras.backend.get_session()
+#     current_session = tf.compat.v1.keras.backend.get_session()
     # Set the input layers of each layer.
     for layer in model.layers:
         try:
@@ -158,12 +157,11 @@ def insert_layer_noseq(model, layer_regexs):
         network_dict["new_output_tensor_of"].update({layer.name: x})
 
     # Reconstruct graph.
-#     tf.reset_default_graph()
-    tf.compat.v1.reset_default_graph()
-#     new_sess = tf.Session()
-    new_sess = tf.compat.v1.Session()
-#     tf.keras.backend.set_session(new_sess)
-    tf.compat.v1.keras.backend.set_session(new_sess)
+#     Do not need sessions in tf-v2
+#     
+#     tf.compat.v1.reset_default_graph()
+#     new_sess = tf.compat.v1.Session()
+#     tf.compat.v1.keras.backend.set_session(new_sess)
 
     input_constructor, input_conf, _ = conenctions[layers_order[0]]
     new_model_input = input_constructor.from_config(input_conf)
@@ -185,14 +183,14 @@ def insert_layer_noseq(model, layer_regexs):
         network_dict["new_output_tensor_of"].update({layer.name: x})
 
     new_model = Model(inputs=new_model_input.input, outputs=x)
-    current_session.close()
+#     current_session.close()
 
     return new_model
 
 
 def compress_noseq(model, decompose_info, optimize_rank=False, vbmf=True, vbmf_weaken_factor=0.8):
     new_model = model
-    layer_regexs = dict()
+    layer_regexs = dict() 
 
     for idx, layer in enumerate(model.layers[1:]):
         if layer.name not in decompose_info:
@@ -200,7 +198,7 @@ def compress_noseq(model, decompose_info, optimize_rank=False, vbmf=True, vbmf_w
 
         decompose, decomp_rank = decompose_info[layer.name]
 
-        new_layer = get_new_layer(decompose, decomp_rank, layer, optimize_rank, vbmf, vbmf_weaken_factor)
+        layer_regexs[layer.name] = get_new_layer(decompose, decomp_rank, layer, optimize_rank, vbmf, vbmf_weaken_factor)
 
     new_model = insert_layer_noseq(new_model, layer_regexs)
 
