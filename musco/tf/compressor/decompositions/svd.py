@@ -86,7 +86,8 @@ def get_svd_new_layer(layer, rank=2):
         or isinstance(layer, keras.layers.LSTMCell):
         cell = musco_layers.decomp_recurrent_cell.FusedSVDLSTMCell(
             units=layer.units,
-            parent_layer=layer
+            parent_layer=layer,
+            rank=rank
         )
         new_layer = keras.layers.RNN(cell, return_sequences=conf['return_sequences'])
         
